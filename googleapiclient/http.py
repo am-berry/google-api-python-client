@@ -1596,6 +1596,7 @@ class BatchHttpRequest(object):
 
         if redo_requests:
             self.retry_count += 1
+            time.sleep(self.retry_count)
             self._execute(http, redo_order, redo_requests)
         # Now process all callbacks that are erroring, and raise an exception for
         # ones that return a non-2xx response? Or add extra parameter to callback
