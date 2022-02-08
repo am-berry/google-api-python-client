@@ -1245,6 +1245,8 @@ class BatchHttpRequest(object):
         # A map of id(Credentials) that have been refreshed.
         self._refreshed_credentials = {}
 
+        self.retry_count = 0
+
     def _refresh_and_apply_credentials(self, request, http):
         """Refresh the credentials and apply to the request.
 
@@ -1580,6 +1582,21 @@ class BatchHttpRequest(object):
         if redo_requests:
             self._execute(http, redo_order, redo_requests)
 
+        # Redoing the 500, 503 errors
+        redo_requests = {}
+        redo_order = []
+
+        for request_id in self._order:
+            resp, content = self._responses[request_id]
+            if resp["status"] in ["500", "503"] and self.retry_count < 5:
+                redo_order.append(request_id)
+                request = self._requests[request_id]
+                self._refresh_and_apply_credentials(request, http)
+                redo_requests[request_id] = request
+
+        if redo_requests:
+            self.retry_count += 1
+            self._execute(http, redo_order, redo_requests)
         # Now process all callbacks that are erroring, and raise an exception for
         # ones that return a non-2xx response? Or add extra parameter to callback
         # that contains an HttpError?
